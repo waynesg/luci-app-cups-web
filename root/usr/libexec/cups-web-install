@@ -1,0 +1,10 @@
+#!/bin/sh
+
+echo "Downloading cups-web binary..."
+
+URL="https://github.com/hanxi/cups-web/releases/latest/download/cups-web-linux-amd64"
+
+wget -O /usr/bin/cups-web "$URL"
+chmod +x /usr/bin/cups-web
+
+echo "Done."
