@@ -1,0 +1,11 @@
+{
+  "luci-app-cups-web": {
+    "description": "Allow access to cups-web",
+    "read": {
+      "uci": ["cups-web"]
+    },
+    "write": {
+      "uci": ["cups-web"]
+    }
+  }
+}
