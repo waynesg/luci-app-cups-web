@@ -5,6 +5,6 @@ PKG_VERSION:=1.3
 PKG_RELEASE:=1
 
 LUCI_TITLE:=CUPS Web Print Management
-LUCI_DEPENDS:=+luci-base
+LUCI_DEPENDS:=+luci-base +procd
 
 include $(TOPDIR)/feeds/luci/luci.mk
