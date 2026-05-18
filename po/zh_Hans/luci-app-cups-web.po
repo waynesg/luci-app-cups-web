@@ -49,7 +49,7 @@ msgid "Directory for uploaded files"
 msgstr "上传文件存储目录"
 
 msgid "CUPS Web"
-msgstr "CUPS Web 打印服务"
+msgstr "打印服务"
 
 msgid "CUPS Web Status"
 msgstr "CUPS Web 状态"
