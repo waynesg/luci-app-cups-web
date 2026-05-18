@@ -6,5 +6,13 @@
       "type": "view",
       "path": "cups-web/index"
     }
+  },
+  "admin/services/cups-web/status": {
+    "title": "CUPS Web Status",
+    "order": 91,
+    "action": {
+      "type": "view",
+      "path": "cups-web/status"
+    }
   }
 }
