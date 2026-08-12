@@ -1,6 +1,0 @@
-config cups-web 'main'
-    option enabled '0'
-    option port '8080'
-    option cups_host 'localhost'
-    option db_path '/var/lib/cups-web/data/cups-web.db'
-    option upload_dir '/var/lib/cups-web/uploads'
