@@ -24,3 +24,7 @@
 ## 说明
 
 该包使用上游静态 x86-64 发布文件。OpenWrt 环境不包含 LibreOffice、Java、Ghostscript 及 Debian 驱动工具，因此 Office/OFD 转换和网页内安装 Debian 打印驱动不可用。
+
+## 上游同步
+
+GitHub Actions 每天北京时间 02:23 检查 `hanxi/cups-web` 的最新 Release。发现新版本后会下载 x86-64 二进制文件、重新计算 SHA-256，并自动更新 `cups-web/Makefile`。也可在 Actions 页面手动运行 `Sync upstream cups-web`。

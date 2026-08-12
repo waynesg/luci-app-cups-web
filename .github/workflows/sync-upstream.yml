@@ -1,0 +1,80 @@
+name: Sync upstream cups-web
+
+on:
+  schedule:
+    - cron: '23 18 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream-cups-web
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve latest upstream release
+        id: upstream
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          release_json="$(gh api repos/hanxi/cups-web/releases/latest)"
+          tag="$(jq -r '.tag_name' <<<"${release_json}")"
+          version="${tag#v}"
+          asset_url="$(jq -r '.assets[] | select(.name == "cups-web-linux-amd64") | .browser_download_url' <<<"${release_json}")"
+
+          if [ -z "${version}" ] || [ "${version}" = "null" ]; then
+            echo "Unable to resolve upstream version" >&2
+            exit 1
+          fi
+          if [ -z "${asset_url}" ] || [ "${asset_url}" = "null" ]; then
+            echo "Release ${tag} has no cups-web-linux-amd64 asset" >&2
+            exit 1
+          fi
+
+          curl --fail --location --retry 3 --output /tmp/cups-web-linux-amd64 "${asset_url}"
+          sha256="$(sha256sum /tmp/cups-web-linux-amd64 | cut -d' ' -f1)"
+
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "sha256=${sha256}" >> "${GITHUB_OUTPUT}"
+
+      - name: Update OpenWrt package
+        env:
+          VERSION: ${{ steps.upstream.outputs.version }}
+          SHA256: ${{ steps.upstream.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+
+          sed -i -E "s/^PKG_VERSION:=.*/PKG_VERSION:=${VERSION}/" cups-web/Makefile
+          sed -i -E "s/^PKG_HASH:=.*/PKG_HASH:=${SHA256}/" cups-web/Makefile
+
+          grep -qx "PKG_VERSION:=${VERSION}" cups-web/Makefile
+          grep -qx "PKG_HASH:=${SHA256}" cups-web/Makefile
+
+      - name: Commit changes
+        env:
+          TAG: ${{ steps.upstream.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- cups-web/Makefile; then
+            echo "Already synchronized with ${TAG}."
+            exit 0
+          fi
+
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add cups-web/Makefile
+          git commit -m "chore: sync cups-web ${TAG}"
+          git push
