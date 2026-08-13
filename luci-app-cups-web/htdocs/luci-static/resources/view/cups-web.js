@@ -11,6 +11,17 @@ return view.extend({
 		var listen = uci.get('cups-web', 'main', 'listen_addr') || '0.0.0.0:8080';
 		var match = listen.match(/:(\d+)$/);
 		var url = 'http://' + window.location.hostname + ':' + (match ? match[1] : '8080') + '/';
+
+		if (window.location.protocol === 'https:') {
+			return E('div', { 'class': 'cbi-map' }, [
+				E('h2', {}, [ _('Web Printing') ]),
+				E('div', { 'class': 'cbi-section' }, [
+					E('p', {}, [ _('浏览器不允许在 HTTPS 的 LuCI 页面中嵌入 HTTP 服务。请使用 HTTP 打开 LuCI，或在新页面中打开网页打印。') ]),
+					E('a', { 'class': 'btn cbi-button cbi-button-action', 'href': url, 'target': '_blank', 'rel': 'noopener' }, [ _('打开网页打印') ])
+				])
+			]);
+		}
+
 		return E('div', { 'class': 'cbi-map cups-web' }, [
 			E('iframe', {
 				class: 'cups-web-frame',

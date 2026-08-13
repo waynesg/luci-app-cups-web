@@ -21,6 +21,8 @@
 
 首次登录后应立即修改默认密码。
 
+LuCI 内嵌页面需要通过 HTTP 访问路由器；浏览器会阻止 HTTPS LuCI 内嵌 HTTP 8080 服务。HTTPS 模式下页面会提供独立打开按钮。
+
 LuCI 使用 HTTPS 时，浏览器会阻止内嵌的 HTTP 页面。此时请通过 HTTP 访问 LuCI，或为 cups-web 单独配置 HTTPS。
 
 ## 说明
