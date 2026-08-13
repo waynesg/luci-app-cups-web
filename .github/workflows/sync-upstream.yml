@@ -75,7 +75,9 @@ jobs:
 
           auth = Path('upstream/cmd/server/auth_handlers.go')
           text = auth.read_text()
+          text = text.replace('"net/http"', '"net/http"\n\t"os"')
           text = text.replace('func SessionHandler(w http.ResponseWriter, r *http.Request) {', 'func SessionHandler(w http.ResponseWriter, r *http.Request) {\n\tif os.Getenv("CUPS_WEB_EMBEDDED") == "1" { writeJSON(w, map[string]string{"username":"embedded", "role":"admin"}); return }')
+          if '"os"' not in text or 'CUPS_WEB_EMBEDDED' not in text: raise SystemExit('failed to patch session handler')
           auth.write_text(text)
 
           PY
