@@ -10,7 +10,7 @@ return view.extend({
 	render: function() {
 		var listen = uci.get('cups-web', 'main', 'listen_addr') || '0.0.0.0:8080';
 		var match = listen.match(/:(\d+)$/);
-		var url = 'http://' + window.location.hostname + ':' + (match ? match[1] : '8080') + '/?embedded=1';
+		var url = 'http://' + window.location.hostname + ':' + (match ? match[1] : '8080') + '/?embedded=1&v=3#/print';
 
 		if (window.location.protocol === 'https:') {
 			return E('div', { 'class': 'cbi-map' }, [
@@ -32,7 +32,8 @@ return view.extend({
 
 		frame.addEventListener('load', function() {
 			var style = getComputedStyle(document.documentElement);
-			var primary = style.getPropertyValue('--primary-color').trim() ||
+			var primary = style.getPropertyValue('--primary').trim() ||
+				style.getPropertyValue('--primary-color').trim() ||
 				style.getPropertyValue('--ui-primary').trim() ||
 				style.getPropertyValue('--accent-color').trim();
 			frame.contentWindow.postMessage({ type: 'cups-web-theme', primary: primary }, '*');

@@ -80,13 +80,39 @@ jobs:
           if '"os"' not in text or 'CUPS_WEB_EMBEDDED' not in text: raise SystemExit('failed to patch session handler')
           auth.write_text(text)
 
+          router = Path('upstream/frontend/src/router/index.js')
+          text = router.read_text()
+          text = text.replace("import { createRouter, createWebHashHistory } from 'vue-router'", "import { createRouter, createWebHashHistory } from 'vue-router'\n\nconst embedded = new URLSearchParams(window.location.search).get('embedded') === '1'")
+          text = text.replace("{ path: '/', redirect: '/login' }", "{ path: '/', redirect: embedded ? '/print' : '/login' }")
+          if "embedded ? '/print' : '/login'" not in text: raise SystemExit('failed to patch embedded route')
+          router.write_text(text)
           PY
 
           python3 - <<'PY'
           from pathlib import Path
           path = Path('upstream/frontend/src/App.vue')
           text = path.read_text()
-          text = text.replace('</script>', "\nwindow.addEventListener('message', (event) => {\n  if (!event.data || event.data.type !== 'cups-web-theme') return\n  const root = document.documentElement\n  if (event.data.primary) root.style.setProperty('--ui-primary', event.data.primary)\n  if (event.data.primarySoft) root.style.setProperty('--ui-primary-50', event.data.primarySoft)\n})\n</script>", 1)
+          text = text.replace('</script>', r'''
+function mixColor(hex, target, amount) {
+  const value = String(hex || '').trim().replace('#', '')
+  if (!/^[0-9a-fA-F]{6}$/.test(value)) return ''
+  const source = [0, 2, 4].map(i => parseInt(value.slice(i, i + 2), 16))
+  const mixed = source.map(channel => Math.round(channel + (target - channel) * amount))
+  return '#' + mixed.map(channel => channel.toString(16).padStart(2, '0')).join('')
+}
+
+window.addEventListener('message', (event) => {
+  if (!event.data || event.data.type !== 'cups-web-theme' || !event.data.primary) return
+  const root = document.documentElement
+  const primary = event.data.primary
+  const shades = { 50: mixColor(primary, 255, .92), 100: mixColor(primary, 255, .82), 200: mixColor(primary, 255, .65), 300: mixColor(primary, 255, .45), 400: mixColor(primary, 255, .22), 500: primary, 600: mixColor(primary, 0, .12), 700: mixColor(primary, 0, .25), 800: mixColor(primary, 0, .38), 900: mixColor(primary, 0, .50), 950: mixColor(primary, 0, .62) }
+  Object.entries(shades).forEach(([shade, color]) => {
+    if (color) root.style.setProperty(`--ui-color-primary-${shade}`, color)
+  })
+  root.style.setProperty('--ui-primary', primary)
+})
+</script>''', 1)
+          if "\n+function mixColor" in text: raise SystemExit('invalid theme patch')
           path.write_text(text)
           PY
 
