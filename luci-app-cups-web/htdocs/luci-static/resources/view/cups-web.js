@@ -10,7 +10,7 @@ return view.extend({
 	render: function() {
 		var listen = uci.get('cups-web', 'main', 'listen_addr') || '0.0.0.0:8080';
 		var match = listen.match(/:(\d+)$/);
-		var url = 'http://' + window.location.hostname + ':' + (match ? match[1] : '8080') + '/';
+		var url = 'http://' + window.location.hostname + ':' + (match ? match[1] : '8080') + '/?embedded=1';
 
 		if (window.location.protocol === 'https:') {
 			return E('div', { 'class': 'cbi-map' }, [
@@ -22,15 +22,23 @@ return view.extend({
 			]);
 		}
 
-		return E('div', { 'class': 'cbi-map cups-web' }, [
-			E('iframe', {
-				class: 'cups-web-frame',
-				src: url,
-				title: _('Web Printing'),
-				loading: 'eager',
-				style: 'border: 0; display: block; height: calc(100vh - 180px); min-height: 720px; width: 100%;'
-			})
-		]);
+		var frame = E('iframe', {
+			'class': 'cups-web-frame',
+			'src': url,
+			'title': _('Web Printing'),
+			'loading': 'eager',
+			'style': 'border:0;display:block;height:calc(100vh - 180px);min-height:720px;width:100%;'
+		});
+
+		frame.addEventListener('load', function() {
+			var style = getComputedStyle(document.documentElement);
+			var primary = style.getPropertyValue('--primary-color').trim() ||
+				style.getPropertyValue('--ui-primary').trim() ||
+				style.getPropertyValue('--accent-color').trim();
+			frame.contentWindow.postMessage({ type: 'cups-web-theme', primary: primary }, '*');
+		});
+
+		return E('div', { 'class': 'cbi-map cups-web' }, [ frame ]);
 	},
 
 	handleSaveApply: null,

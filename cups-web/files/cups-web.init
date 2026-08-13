@@ -13,6 +13,7 @@ start_service() {
 	config_get data_dir main data_dir '/etc/cups-web'
 	config_get upload_dir main upload_dir '/etc/cups-web/uploads'
 	config_get_bool cookie_secure main cookie_secure 0
+	config_get_bool embedded main embedded 1
 	mkdir -p "$data_dir" "$upload_dir"
 
 	case "$cups_host" in
@@ -26,7 +27,7 @@ start_service() {
 	procd_set_param command /usr/bin/cups-web
 	procd_set_param env LISTEN_ADDR="$listen_addr" CUPS_HOST="$cups_host" \
 		DB_PATH="$data_dir/cups-web.db" UPLOAD_DIR="$upload_dir" \
-		COOKIE_SECURE="$cookie_secure"
+		COOKIE_SECURE="$cookie_secure" CUPS_WEB_EMBEDDED="$embedded"
 	procd_set_param respawn 3600 5 5
 	procd_set_param stdout 1
 	procd_set_param stderr 1

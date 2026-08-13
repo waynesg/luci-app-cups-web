@@ -55,6 +55,39 @@ jobs:
           path.write_text(text)
           PY
 
+      - name: Enable OpenWrt embedded mode
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          csrf = Path('upstream/internal/middleware/csrf.go')
+          text = csrf.read_text()
+          text = text.replace('"net/http"', '"net/http"\n\t"os"')
+          text = text.replace('func RequireSession(next http.Handler) http.Handler {', 'func embeddedMode() bool { return os.Getenv("CUPS_WEB_EMBEDDED") == "1" }\n\nfunc RequireSession(next http.Handler) http.Handler {')
+          text = text.replace('\t\t_, err := auth.GetSession(r)', '\t\tif embeddedMode() { next.ServeHTTP(w, r); return }\n\t\t_, err := auth.GetSession(r)', 1)
+          marker = 'func RequireAdmin(next http.Handler) http.Handler {\n\treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {'
+          text = text.replace(marker, marker + '\n\t\tif embeddedMode() { next.ServeHTTP(w, r); return }')
+          text = text.replace('\t\t// Only validate for state-changing methods', '\t\tif embeddedMode() { next.ServeHTTP(w, r); return }\n\t\t// Only validate for state-changing methods')
+          for expected in ('func embeddedMode()', 'if embeddedMode() { next.ServeHTTP(w, r); return }'):
+              if expected not in text: raise SystemExit('failed to patch authentication middleware')
+          csrf.write_text(text)
+
+          auth = Path('upstream/cmd/server/auth_handlers.go')
+          text = auth.read_text()
+          text = text.replace('func SessionHandler(w http.ResponseWriter, r *http.Request) {', 'func SessionHandler(w http.ResponseWriter, r *http.Request) {\n\tif os.Getenv("CUPS_WEB_EMBEDDED") == "1" { writeJSON(w, map[string]string{"username":"embedded", "role":"admin"}); return }')
+          auth.write_text(text)
+
+          PY
+
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('upstream/frontend/src/App.vue')
+          text = path.read_text()
+          text = text.replace('</script>', "\nwindow.addEventListener('message', (event) => {\n  if (!event.data || event.data.type !== 'cups-web-theme') return\n  const root = document.documentElement\n  if (event.data.primary) root.style.setProperty('--ui-primary', event.data.primary)\n  if (event.data.primarySoft) root.style.setProperty('--ui-primary-50', event.data.primarySoft)\n})\n</script>", 1)
+          path.write_text(text)
+          PY
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
