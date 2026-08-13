@@ -15,6 +15,13 @@ start_service() {
 	config_get_bool cookie_secure main cookie_secure 0
 	mkdir -p "$data_dir" "$upload_dir"
 
+	case "$cups_host" in
+		127.0.0.1|localhost|::1)
+			cupsctl WebInterface=yes >/dev/null 2>&1 || \
+				logger -t cups-web "failed to enable the local CUPS web interface"
+			;;
+	esac
+
 	procd_open_instance
 	procd_set_param command /usr/bin/cups-web
 	procd_set_param env LISTEN_ADDR="$listen_addr" CUPS_HOST="$cups_host" \

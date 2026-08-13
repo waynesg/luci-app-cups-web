@@ -18,7 +18,7 @@ define Package/cups-web
   SUBMENU:=Printing
   TITLE:=Web printing frontend for CUPS
   URL:=https://github.com/hanxi/cups-web
-  DEPENDS:=@TARGET_x86_64 +cups
+  DEPENDS:=@TARGET_x86_64 +cups +cups-client
 endef
 
 define Package/cups-web/description
