@@ -86,6 +86,15 @@ jobs:
           text = text.replace("{ path: '/', redirect: '/login' }", "{ path: '/', redirect: embedded ? '/print' : '/login' }")
           if "embedded ? '/print' : '/login'" not in text: raise SystemExit('failed to patch embedded route')
           router.write_text(text)
+
+          app = Path('upstream/frontend/src/App.vue')
+          text = app.read_text()
+          text = text.replace("const appVersion = ref('')", "const appVersion = ref('')\nconst embedded = new URLSearchParams(window.location.search).get('embedded') === '1'")
+          marker = 'async function loadSession() {\n  try {'
+          replacement = "async function loadSession() {\n  if (embedded) {\n    session.value = { username: 'embedded', role: 'admin' }\n    updateSessionCache(session.value)\n    router.replace('/print')\n    sessionLoaded.value = true\n    return\n  }\n  try {"
+          text = text.replace(marker, replacement)
+          if "session.value = { username: 'embedded'" not in text: raise SystemExit('failed to patch embedded app startup')
+          app.write_text(text)
           PY
 
           python3 - <<'PY'
