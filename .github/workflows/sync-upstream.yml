@@ -16,7 +16,7 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout package repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -27,52 +27,94 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-
-          release_json="$(gh api repos/hanxi/cups-web/releases/latest)"
-          tag="$(jq -r '.tag_name' <<<"${release_json}")"
+          tag="$(gh api repos/hanxi/cups-web/releases/latest --jq '.tag_name')"
           version="${tag#v}"
-          asset_url="$(jq -r '.assets[] | select(.name == "cups-web-linux-amd64") | .browser_download_url' <<<"${release_json}")"
-
-          if [ -z "${version}" ] || [ "${version}" = "null" ]; then
-            echo "Unable to resolve upstream version" >&2
-            exit 1
-          fi
-          if [ -z "${asset_url}" ] || [ "${asset_url}" = "null" ]; then
-            echo "Release ${tag} has no cups-web-linux-amd64 asset" >&2
-            exit 1
-          fi
-
-          curl --fail --location --retry 3 --output /tmp/cups-web-linux-amd64 "${asset_url}"
-          sha256="$(sha256sum /tmp/cups-web-linux-amd64 | cut -d' ' -f1)"
-
+          test -n "${version}"
           echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
-          echo "sha256=${sha256}" >> "${GITHUB_OUTPUT}"
+
+      - name: Checkout upstream source
+        uses: actions/checkout@v4
+        with:
+          repository: hanxi/cups-web
+          ref: ${{ steps.upstream.outputs.tag }}
+          path: upstream
+
+      - name: Allow LuCI embedding
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('upstream/internal/middleware/security.go')
+          text = path.read_text()
+          text = text.replace('"frame-ancestors \'none\'"', '"frame-ancestors *"')
+          text = text.replace('\n\t\th.Set("X-Frame-Options", "DENY")', '')
+          if "frame-ancestors 'none'" in text or 'X-Frame-Options' in text:
+              raise SystemExit('failed to patch upstream frame policy')
+          path.write_text(text)
+          PY
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.1'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Build OpenWrt binary
+        env:
+          CGO_ENABLED: 0
+          GOOS: linux
+          GOARCH: amd64
+          GOTOOLCHAIN: local
+          VERSION: ${{ steps.upstream.outputs.version }}-openwrt
+        run: |
+          set -euo pipefail
+          cd upstream/frontend
+          bun install --frozen-lockfile
+          bunx vite build
+          cd ../..
+          go build -C upstream -ldflags="-s -w -X main.Version=${VERSION}" -o ../cups-web-linux-amd64 ./cmd/server
+          file cups-web-linux-amd64 | grep -q 'statically linked'
+
+      - name: Publish OpenWrt binary
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: openwrt-${{ steps.upstream.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release upload "${TAG}" cups-web-linux-amd64 --clobber
+          else
+            gh release create "${TAG}" cups-web-linux-amd64 \
+              --title "CUPS Web ${{ steps.upstream.outputs.tag }} for OpenWrt" \
+              --notes "OpenWrt x86-64 build with LuCI iframe support."
+          fi
 
       - name: Update OpenWrt package
         env:
           VERSION: ${{ steps.upstream.outputs.version }}
-          SHA256: ${{ steps.upstream.outputs.sha256 }}
         run: |
           set -euo pipefail
-
+          sha256="$(sha256sum cups-web-linux-amd64 | cut -d' ' -f1)"
           sed -i -E "s/^PKG_VERSION:=.*/PKG_VERSION:=${VERSION}/" cups-web/Makefile
-          sed -i -E "s/^PKG_HASH:=.*/PKG_HASH:=${SHA256}/" cups-web/Makefile
-
-          grep -qx "PKG_VERSION:=${VERSION}" cups-web/Makefile
-          grep -qx "PKG_HASH:=${SHA256}" cups-web/Makefile
+          sed -i -E "s/^PKG_RELEASE:=.*/PKG_RELEASE:=2/" cups-web/Makefile
+          sed -i -E "s/^PKG_HASH:=.*/PKG_HASH:=${sha256}/" cups-web/Makefile
+          grep -qx "PKG_HASH:=${sha256}" cups-web/Makefile
 
       - name: Commit changes
         env:
           TAG: ${{ steps.upstream.outputs.tag }}
         run: |
           set -euo pipefail
-
           if git diff --quiet -- cups-web/Makefile; then
             echo "Already synchronized with ${TAG}."
             exit 0
           fi
-
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add cups-web/Makefile
