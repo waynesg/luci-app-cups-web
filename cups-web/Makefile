@@ -1,11 +1,11 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=cups-web
-PKG_VERSION:=0.2.5
+PKG_VERSION:=0.2.6
 PKG_RELEASE:=2
 PKG_SOURCE:=cups-web-linux-amd64
 PKG_SOURCE_URL:=https://github.com/waynesg/luci-app-cups-web/releases/download/openwrt-v$(PKG_VERSION)/
-PKG_HASH:=409829586ea206df035ff5559d9bf681423bfddfcf177d13ec9959020cd767ec
+PKG_HASH:=9c9271a24b715b45297afe990734ce696dfd814c5c3b80d9b786340d7558c0ad
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
 PKG_LICENSE:=MIT
 PKG_MAINTAINER:=WAYNE
